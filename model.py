@@ -1,4 +1,4 @@
-import tensorflow as tf
+kmport tensorflow as tf
 from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import seq2seq
 
@@ -59,27 +59,42 @@ class Model():
         self.train_op = optimizer.apply_gradients(zip(grads, tvars))
 
     def sample(self, sess, chars, vocab, num=200, prime='The ', sampling_type=1):
+        # Prepare net-state
         state = sess.run(self.cell.zero_state(1, tf.float32))
+
+        # Start feeding the net with the first data points
         for char in prime[:-1]:
             x = np.zeros((1, 1))
             x[0, 0] = vocab[char]
             feed = {self.input_data: x, self.initial_state:state}
+            # Go to the final state
+            # No predictions since we provide the chars here
             [state] = sess.run([self.final_state], feed)
 
+        # Awsom place for a function definition mate
         def weighted_pick(weights):
             t = np.cumsum(weights)
             s = np.sum(weights)
             return(int(np.searchsorted(t, np.random.rand(1)*s)))
 
+        # Returned sequence must begin with the one provided
         ret = prime
+
+        # Start finding most probabl chars after the last one
         char = prime[-1]
-        for n in range(num):
+
+        for _ in range(num):
             x = np.zeros((1, 1))
             x[0, 0] = vocab[char]
+
+            # Keep the net-state up-to-date after each iteration
             feed = {self.input_data: x, self.initial_state:state}
             [probs, state] = sess.run([self.probs, self.final_state], feed)
+
+            # This is now a tensor (was a list)?
             p = probs[0]
 
+            # Choose a char from given probability distribution
             if sampling_type == 0:
                 sample = np.argmax(p)
             elif sampling_type == 2:
@@ -90,9 +105,10 @@ class Model():
             else: # sampling_type == 1 default:
                 sample = weighted_pick(p)
 
+            # int -> char
             pred = chars[sample]
             ret += pred
             char = pred
-        return ret
 
+        return ret
 
