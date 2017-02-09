@@ -1,4 +1,4 @@
-kmport tensorflow as tf
+import tensorflow as tf
 from tensorflow.python.ops import rnn_cell
 from tensorflow.python.ops import seq2seq
 
@@ -43,14 +43,22 @@ class Model():
 
         outputs, last_state = seq2seq.rnn_decoder(inputs, self.initial_state, cell, loop_function=loop if infer else None, scope='rnnlm')
         output = tf.reshape(tf.concat(1, outputs), [-1, args.rnn_size])
+
+        # Remembering net-state enables going forward
+        self.final_state = last_state
+
+        # This has length = vocab_size = 65
         self.logits = tf.matmul(output, softmax_w) + softmax_b
         self.probs = tf.nn.softmax(self.logits)
+
+        # WTF is the relation of targets and logits?
         loss = seq2seq.sequence_loss_by_example([self.logits],
                 [tf.reshape(self.targets, [-1])],
                 [tf.ones([args.batch_size * args.seq_length])],
                 args.vocab_size)
+
+        # FIXME How to do this with the minimize(cost) approach?
         self.cost = tf.reduce_sum(loss) / args.batch_size / args.seq_length
-        self.final_state = last_state
         self.lr = tf.Variable(0.0, trainable=False)
         tvars = tf.trainable_variables()
         grads, _ = tf.clip_by_global_norm(tf.gradients(self.cost, tvars),
